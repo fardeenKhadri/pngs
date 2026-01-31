@@ -72,13 +72,6 @@ Open your browser and navigate to:
 3.  Click **Decode Signal**.
 4.  The system will extract and display the hidden ID.
 
-## 🔮 Roadmap
-
-*   [x] **Phase 1**: Core DWT Algorithm & Web UI (Completed)
-*   [ ] **Phase 2**: Robustness Testing (JPEG survival, Cropping resistance)
-*   [ ] **Phase 3**: Integration of Deep Learning models (RivaGAN) for "SynthID-level" resilience.
-*   [ ] **Phase 4**: API deployment ready.
-
 ##  License
 
 This project is open-source and available under the standard MIT License.
