@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astral Watermarker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Probaly Not Gonna shh</h1>
+            <p class="subtitle">Invisible Signal Embedding Technology</p>
+        </div>
+
+        <div class="glass-card">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('embed')">Embed</button>
+                <button class="tab-btn" onclick="switchTab('decode')">Decode</button>
+            </div>
+
+            <!-- EMBED TAB -->
+            <div id="embed-tab" class="tab-content active">
+                <form id="embed-form">
+                    <div class="upload-zone" id="embed-zone">
+                        <input type="file" id="embed-file" hidden accept="image/*">
+                        <p>Drag & Drop Image or Click to Upload</p>
+                        <p style="font-size: 0.8rem; color: #64748b; margin-top: 0.5rem;">Supports PNG, JPG, WEBP</p>
+                    </div>
+
+                    <div class="input-group">
+                        <input type="text" id="watermark-text" class="text-input"
+                            placeholder="Enter Secret ID (e.g. SYNTH-01)" maxlength="8" required>
+                    </div>
+
+                    <button type="submit" class="action-btn">
+                        <span id="embed-btn-text">Embed Signal</span>
+                    </button>
+                </form>
+
+                <div id="embed-result" class="result-area">
+                    <h3 style="margin-bottom: 1rem;">Watermarked Preview</h3>
+                    <img id="preview-img" class="preview-img" src="" alt="Watermarked Image">
+                    <br>
+                    <a id="download-link" href="#" download="watermarked_image.png" class="action-btn"
+                        style="display: inline-block; width: auto; text-decoration: none; padding: 0.75rem 2rem;">
+                        Download Image
+                    </a>
+                </div>
+            </div>
+
+            <!-- DECODE TAB -->
+            <div id="decode-tab" class="tab-content">
+                <form id="decode-form">
+                    <div class="upload-zone" id="decode-zone">
+                        <input type="file" id="decode-file" hidden accept="image/*">
+                        <p>Upload Watermarked Image to Decode</p>
+                    </div>
+
+                    <button type="submit" class="action-btn">
+                        <span id="decode-btn-text">Decode Signal</span>
+                    </button>
+                </form>
+
+                <div id="decode-result" class="result-area">
+                    <h3>Detected Signal</h3>
+                    <div id="detected-id"
+                        style="font-size: 2rem; font-weight: 800; color: var(--accent-color); margin-top: 1rem;">
+                        <!-- Result goes here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tab Switching
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tab + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Drag & Drop / File Input Logic (Generic)
+        ['embed', 'decode'].forEach(type => {
+            const zone = document.getElementById(type + '-zone');
+            const input = document.getElementById(type + '-file');
+
+            zone.addEventListener('click', () => input.click());
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('dragover');
+            });
+
+            zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                input.files = e.dataTransfer.files;
+                handleFileSelect(input, zone);
+            });
+
+            input.addEventListener('change', () => handleFileSelect(input, zone));
+        });
+
+        function handleFileSelect(input, zone) {
+            if (input.files.length > 0) {
+                zone.querySelector('p').textContent = "Selected: " + input.files[0].name;
+            }
+        }
+
+        // Embed Form Submit
+        document.getElementById('embed-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            const fileInput = document.getElementById('embed-file');
+            const textInput = document.getElementById('watermark-text');
+
+            if (!fileInput.files[0]) return alert('Please select an image');
+
+            formData.append('image', fileInput.files[0]);
+            formData.append('text', textInput.value);
+
+            const btn = document.querySelector('#embed-form button');
+            const originalText = document.getElementById('embed-btn-text').textContent;
+
+            setLoading(btn, true);
+
+            try {
+                const response = await fetch('/embed', { method: 'POST', body: formData });
+                if (!response.ok) throw new Error('Embedding failed');
+
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+
+                document.getElementById('preview-img').src = url;
+                document.getElementById('download-link').href = url;
+                document.getElementById('embed-result').style.display = 'block';
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                setLoading(btn, false, originalText);
+            }
+        });
+
+        // Decode Form Submit
+        document.getElementById('decode-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            const fileInput = document.getElementById('decode-file');
+
+            if (!fileInput.files[0]) return alert('Please select an image to decode');
+
+            formData.append('image', fileInput.files[0]);
+
+            const btn = document.querySelector('#decode-form button');
+            const originalText = document.getElementById('decode-btn-text').textContent;
+
+            setLoading(btn, true);
+
+            try {
+                const response = await fetch('/decode', { method: 'POST', body: formData });
+                const data = await response.json();
+
+                const resultDiv = document.getElementById('detected-id');
+                if (data.status === 'success') {
+                    resultDiv.textContent = data.payload;
+                    resultDiv.style.color = '#c084fc';
+                } else {
+                    resultDiv.textContent = "No Signal Detected";
+                    resultDiv.style.color = '#ef4444';
+                }
+                document.getElementById('decode-result').style.display = 'block';
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                setLoading(btn, false, originalText);
+            }
+        });
+
+        function setLoading(btn, isLoading, text = '') {
+            if (isLoading) {
+                btn.innerHTML = '<div class="loader"></div> Processing...';
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = text;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
